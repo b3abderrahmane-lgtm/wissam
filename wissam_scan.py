@@ -355,16 +355,16 @@ def main():
     st = load_state()
     now = time.time()
     fresh = []
+    pending = {}
     for sym, tags in hits.items():
-        key = sym + "|" + ",".join(sorted(tags))
+        key = "v2|" + sym + "|" + ",".join(sorted(tags))
         last = st.get(key)
         if last is None or (now - last) >= COOLDOWN_HOURS * 3600:
             fresh.append((sym, tags))
-            st[key] = now
+            pending[key] = now
 
     # forget anything older than a day so the file cannot grow without end
     st = {k: v for k, v in st.items() if now - v < 86400}
-    save_state(st)
 
     if fresh:
         fresh.sort(key=lambda x: -float(tmap[x[0]]["quoteVolume"]))
@@ -379,11 +379,18 @@ def main():
         more = f"\n…and {len(fresh) - 20} more" if len(fresh) > 20 else ""
         msg = (f"🟢 <b>Wissam Cascade</b>  <code>{len(pairs)} pairs</code>\n\n"
                + "\n".join(lines) + more)
-        print("telegram:", tg_send(msg))
+        result = tg_send(msg)
+        print("telegram:", result)
+        if result == "sent":
+            st.update(pending)      # remember only pairs that really reached Telegram
+        else:
+            print("not marked as sent - will retry next run")
     elif SEND_EMPTY:
         print("telegram:", tg_send(f"<i>Wissam Cascade — nothing new ({len(hits)} active)</i>"))
     else:
         print("nothing new to send")
+
+    save_state(st)
 
 
 if __name__ == "__main__":
