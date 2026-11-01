@@ -1,0 +1,1355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wissam Cascade</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0b0e13">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Wissam">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<style>
+/* Layout: scan tabs + one control row over a names panel and a dense table — dark terminal, single theme */
+:root{
+  --bg:#0b0e13;
+  --panel:#121722;
+  --panel-2:#171d2b;
+  --line:#242c3d;
+  --fg:#e3e8f2;
+  --muted:#7c879e;
+  --up:#16c784;
+  --down:#ea3943;
+  --hot:#ffc531;
+  --conv:#8b5cf6;
+  --cross:#3b82f6;
+  --common:#16c784;
+  --accent:var(--conv);
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+:root[data-kind="cross"]{--accent:var(--cross)}
+:root[data-kind="common"]{--accent:var(--common)}
+:root[data-kind="watch"]{--accent:var(--hot)}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%}
+body{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;display:flex;flex-direction:column}
+.pad{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* tabs */
+.tabs{background:var(--panel);border-bottom:1px solid var(--line);padding-block:12px 0;display:flex;flex-wrap:wrap;gap:13px;align-items:flex-end}
+.brand{display:flex;flex-direction:column;gap:2px;margin-right:auto;padding-bottom:10px}
+.brand h1{margin:0;font-size:17px;letter-spacing:-.02em;font-weight:650}
+.brand span{font-size:11.5px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.tabbtn{background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);padding:8px 2px 10px;
+  font-size:12.5px;font-weight:600;cursor:pointer;font-family:var(--sans);border-radius:0;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.tabbtn[aria-selected="true"]{color:var(--fg)}
+.tabbtn[data-kind="conv"][aria-selected="true"]{border-bottom-color:var(--conv)}
+.tabbtn[data-kind="cross"][aria-selected="true"]{border-bottom-color:var(--cross)}
+.tabbtn[data-kind="common"][aria-selected="true"]{border-bottom-color:var(--common)}
+.tabbtn:hover{color:var(--fg)}
+.pill{font-family:var(--mono);font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:999px;background:#1c2332;color:var(--muted)}
+.tabbtn[aria-selected="true"] .pill{background:rgba(255,197,49,.18);color:var(--hot)}
+.pill.zero{opacity:.45}
+
+/* controls */
+.ctrl{background:var(--panel);border-bottom:1px solid var(--line);padding-block:14px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.field label .dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px;vertical-align:1px}
+.dot.c{background:var(--conv)}.dot.x{background:var(--cross)}
+input[type=number],input[type=text]{background:var(--panel-2);border:1px solid var(--line);color:var(--fg);
+  border-radius:7px;padding:7px 9px;font-family:var(--mono);font-size:13px;min-width:0}
+input[type=text]{font-family:var(--sans)}
+input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.chk{display:flex;align-items:center;gap:7px;font-size:12.5px;padding-bottom:8px;white-space:nowrap}
+.chk input{accent-color:var(--accent);width:15px;height:15px}
+button.go{background:var(--accent);color:#fff;border:0;border-radius:7px;padding:9px 18px;font-size:13.5px;font-weight:600;
+  cursor:pointer;font-family:var(--sans);white-space:nowrap}
+button.go:hover{filter:brightness(1.12)}
+button.go:disabled{opacity:.45;cursor:not-allowed}
+button.ghost{background:var(--panel-2);border:1px solid var(--line);color:var(--fg)}
+.sep{width:1px;align-self:stretch;background:var(--line);margin-inline:2px}
+
+/* stages */
+.bar{height:3px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s}
+.stages{display:flex;flex-wrap:wrap;gap:8px;padding-block:9px;background:var(--panel);border-bottom:1px solid var(--line)}
+.stg{font-family:var(--mono);font-size:11px;padding:3px 9px;border-radius:999px;background:#1c2332;color:var(--muted);white-space:nowrap}
+.stg.run{background:rgba(255,197,49,.16);color:var(--hot)}
+.stg.done{background:rgba(22,199,132,.14);color:var(--up)}
+.stg.note{background:none;color:var(--muted);white-space:normal;padding-left:0}
+
+/* chips */
+.chips{display:flex;flex-wrap:wrap;gap:8px;padding-block:10px;border-bottom:1px solid var(--line);background:var(--panel)}
+.chip{background:var(--panel-2);border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:5px 12px;
+  font-size:12px;font-weight:600;cursor:pointer;font-family:var(--sans);display:flex;align-items:center;gap:7px}
+.chip[aria-pressed="true"]{border-color:var(--common);color:var(--fg);background:rgba(22,199,132,.12)}
+.chip b{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--hot)}
+.chip b.zero{color:var(--muted);opacity:.6}
+
+/* names panel */
+.names{border-bottom:1px solid var(--line);background:var(--bg);padding-block:14px 16px}
+.names-head{display:flex;flex-wrap:wrap;gap:12px;align-items:baseline;margin-bottom:11px}
+.names-head h2{margin:0;font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.names-head .count{font-family:var(--mono);font-size:12px;color:var(--hot);font-weight:700}
+.names-wrap{display:flex;flex-wrap:wrap;gap:9px}
+a.coin{display:inline-flex;align-items:baseline;gap:8px;text-decoration:none;background:var(--panel-2);
+  border:1px solid var(--line);border-radius:9px;padding:9px 14px;color:var(--fg);font-weight:700;font-size:17px;letter-spacing:-.01em}
+a.coin:hover{border-color:var(--accent);background:#1d2435}
+a.coin em{font-style:normal;font-family:var(--mono);font-size:11.5px;font-weight:600;color:var(--muted)}
+a.coin.multi{border-color:var(--hot);background:rgba(255,197,49,.1)}
+a.coin.multi em{color:var(--hot)}
+.names-empty{color:var(--muted);font-size:13px}
+
+/* result cards — the primary display */
+.viewtoggle{display:flex;gap:0;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.viewtoggle button{background:var(--panel-2);border:0;color:var(--muted);padding:6px 13px;font-size:12px;
+  font-weight:600;cursor:pointer;font-family:var(--sans)}
+.viewtoggle button[aria-pressed="true"]{background:var(--accent);color:#fff}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 12px 10px;
+  display:flex;flex-direction:column;gap:9px;cursor:pointer;transition:border-color .12s,background .12s}
+.card:hover{border-color:#36405a}
+.card.fav{border-color:var(--hot);background:rgba(255,197,49,.07)}
+.card .ctop{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.card .cnm{font-size:19px;font-weight:700;letter-spacing:-.02em}
+.card .cnm small{font-weight:400;font-size:11px;color:var(--muted)}
+.card .cchg{font-family:var(--mono);font-size:12.5px;font-weight:600}
+.card .cvol{display:flex;flex-direction:column;gap:1px;padding:7px 0 6px;border-block:1px solid #1a2130}
+.card .cvol b{font-family:var(--mono);font-size:19px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.card .cvol span{font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.card .crow{display:flex;justify-content:space-between;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.card .crow b{color:var(--fg);font-weight:600}
+.card .cmetric{font-family:var(--mono);font-size:12px;color:var(--up)}
+.card .cacts{display:flex;gap:6px;margin-top:1px}
+.card .cacts > *{flex:1;text-align:center;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);
+  border-radius:7px;padding:6px 0;font-size:11.5px;cursor:pointer;text-decoration:none;font-family:var(--sans);font-weight:600}
+.card .cacts > *:hover{color:var(--fg);border-color:#36405a}
+.card .cstar{font-size:13px}
+.card.fav .cstar{color:var(--hot);border-color:rgba(255,197,49,.5);background:rgba(255,197,49,.14)}
+.card .ctag{font-size:10px;font-weight:700;letter-spacing:.03em;color:var(--hot)}
+
+/* watch panel */
+.watch{padding-block:4px 30px;display:flex;flex-direction:column;gap:18px}
+.wbox{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:15px}
+.wbox h3{margin:0 0 12px;font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.wrow{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.witem{display:grid;grid-template-columns:1fr auto auto auto auto;gap:9px;align-items:center;
+  padding:10px 0;border-bottom:1px solid #1a2130}
+.witem:last-child{border-bottom:0}
+.witem .wsym{font-weight:700;font-size:16px}
+.witem select{background:var(--panel-2);border:1px solid var(--line);color:var(--fg);border-radius:7px;
+  padding:6px 8px;font-size:12.5px;font-family:var(--sans)}
+.witem .wres{font-family:var(--mono);font-size:11.5px;min-width:68px;text-align:right}
+.witem .wdel{background:none;border:0;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px;line-height:1}
+.witem .wdel:hover{color:var(--down)}
+.witem.fired{background:rgba(255,197,49,.1)}
+.wempty{color:var(--muted);font-size:13px}
+.wstat{display:flex;flex-wrap:wrap;gap:20px;align-items:baseline}
+.wstat div{display:flex;flex-direction:column;gap:2px}
+.wstat b{font-family:var(--mono);font-size:17px;font-variant-numeric:tabular-nums}
+.wstat span{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.wlog{font-family:var(--mono);font-size:11.5px;color:var(--muted);line-height:1.7;max-height:132px;overflow:auto}
+.banner{position:sticky;top:0;z-index:30;background:var(--hot);color:#0b0e13;font-weight:700;
+  padding:12px max(16px,env(safe-area-inset-left,0px));display:flex;gap:12px;align-items:center;justify-content:space-between}
+.banner button{background:#0b0e13;color:var(--hot);border:0;border-radius:6px;padding:6px 12px;font-weight:700;cursor:pointer}
+@media (max-width:620px){.witem{grid-template-columns:1fr 1fr;row-gap:6px}.witem .wres{text-align:left}}
+
+/* stats */
+.stats{display:flex;flex-wrap:wrap;gap:22px;align-items:flex-end;padding-block:11px;border-bottom:1px solid var(--line);background:var(--panel)}
+.stat{display:flex;flex-direction:column;gap:1px}
+.stat b{font-family:var(--mono);font-size:18px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+.stat span{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.stat.hit b{color:var(--hot)}
+
+/* table */
+main{flex:1;overflow:auto;padding-block:0 28px}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+thead th{position:sticky;top:0;z-index:2;background:var(--bg);text-align:right;font-size:10.5px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--muted);font-weight:500;padding:11px 9px;border-bottom:1px solid var(--line);
+  cursor:pointer;white-space:nowrap}
+thead th:first-child,thead th:nth-child(2){text-align:left}
+thead th.on{color:var(--fg)}
+tbody td{padding:9px 9px;border-bottom:1px solid #1a2130;text-align:right;font-family:var(--mono);font-size:13px;white-space:nowrap}
+tbody td:first-child{text-align:left;font-family:var(--sans);color:var(--muted);font-size:11.5px}
+tbody td.sym{text-align:left;font-family:var(--sans);font-weight:600;font-size:13.5px}
+tbody tr.on{background:rgba(255,197,49,.08)}
+tbody tr.on td.sym{color:var(--hot)}
+tbody tr:hover{background:#1a2130}
+.tag{display:inline-block;padding:2px 7px;border-radius:5px;font-size:10.5px;font-weight:700;letter-spacing:.04em;font-family:var(--sans)}
+.tag.yes{background:rgba(255,197,49,.18);color:var(--hot)}
+.tag.near{background:rgba(139,92,246,.2);color:#b794ff}
+.tag.up{background:rgba(22,199,132,.14);color:var(--up)}
+.tag.off{background:#1c2332;color:var(--muted)}
+.up{color:var(--up)}.down{color:var(--down)}.dim{color:var(--muted)}
+.msg{padding:48px 0;text-align:center;color:var(--muted);font-size:13.5px;line-height:1.75}
+.msg b{color:var(--fg)}
+@media (max-width:980px){.hide-s{display:none}.brand{width:100%;margin-right:0}.sep{display:none}}
+</style>
+</head>
+<body>
+
+<div class="tabs pad" role="tablist">
+  <div class="brand">
+    <h1>Wissam Cascade</h1>
+    <span>Binance · USDT spot · 15m → 1h → 4h → 1d</span>
+  </div>
+  <button class="tabbtn" id="t-conv15"  data-kind="conv"   role="tab" aria-selected="true">Conv 15m <span class="pill zero" id="p-conv15">0</span></button>
+  <button class="tabbtn" id="t-conv1h"  data-kind="conv"   role="tab" aria-selected="false">Conv 1h <span class="pill zero" id="p-conv1h">0</span></button>
+  <button class="tabbtn" id="t-cross1h" data-kind="cross"  role="tab" aria-selected="false">Cross 1h <span class="pill zero" id="p-cross1h">0</span></button>
+  <button class="tabbtn" id="t-conv4h"  data-kind="conv"   role="tab" aria-selected="false">Conv 4h <span class="pill zero" id="p-conv4h">0</span></button>
+  <button class="tabbtn" id="t-cross4h" data-kind="cross"  role="tab" aria-selected="false">Cross 4h <span class="pill zero" id="p-cross4h">0</span></button>
+  <button class="tabbtn" id="t-cross1d" data-kind="cross"  role="tab" aria-selected="false">Cross 1d <span class="pill zero" id="p-cross1d">0</span></button>
+  <button class="tabbtn" id="t-common"  data-kind="common" role="tab" aria-selected="false">Cascades <span class="pill zero" id="p-common">0</span></button>
+  <button class="tabbtn" id="t-watch"   data-kind="watch"  role="tab" aria-selected="false">Watch <span class="pill zero" id="p-watch">0</span></button>
+  <button class="tabbtn" id="t-favs"    data-kind="favs"   role="tab" aria-selected="false">★ Favourites <span class="pill zero" id="p-favs">0</span></button>
+</div>
+
+<div class="ctrl pad">
+  <div class="field"><label for="conv-look"><i class="dot c"></i>Conv lookback</label><input id="conv-look" type="number" value="2" min="1" max="20" style="width:84px"></div>
+  <div class="field"><label for="mi"><i class="dot c"></i>MI (|mama| &lt;)</label><input id="mi" type="number" value="10" min="0.5" step="0.5" style="width:84px"></div>
+  <div class="field"><label for="cap"><i class="dot c"></i>macdRSIx &lt;</label><input id="cap" type="number" value="40" min="5" max="100" style="width:84px"></div>
+
+  <div class="sep"></div>
+
+  <div class="field"><label for="fast"><i class="dot x"></i>EMA fast</label><input id="fast" type="number" value="12" min="2" max="200" style="width:70px"></div>
+  <div class="field"><label for="slow"><i class="dot x"></i>EMA slow</label><input id="slow" type="number" value="26" min="3" max="400" style="width:70px"></div>
+  <div class="field"><label for="fresh"><i class="dot x"></i>Bars since · 1h 4h</label><input id="fresh" type="number" value="10" min="1" max="100" style="width:84px"></div>
+  <div class="field"><label for="fresh1d"><i class="dot x"></i>Bars since · 1d</label><input id="fresh1d" type="number" value="2" min="1" max="30" style="width:84px"></div>
+
+  <div class="sep"></div>
+
+  <div class="field"><label for="minvol">Min 24h vol (M$)</label><input id="minvol" type="number" value="0.5" min="0" step="0.1" style="width:86px"></div>
+  <div class="chk"><input type="checkbox" id="only" checked><label for="only">Matches only</label></div>
+
+  <div class="chk"><input type="checkbox" id="auto"><label for="auto">Auto every 15m</label></div>
+
+  <button class="go" id="run">Scan all</button>
+  <button class="go ghost" id="stop" disabled>Stop</button>
+  <button class="go ghost" id="clear">Clear</button>
+</div>
+
+<div class="bar"><i id="prog"></i></div>
+
+<div class="stages pad">
+  <span class="stg" id="stg-1">1 · 15m conv</span>
+  <span class="stg" id="stg-2">2 · 1h conv + cross</span>
+  <span class="stg" id="stg-3">3 · 4h conv + cross</span>
+  <span class="stg" id="stg-4">4 · 1d cross</span>
+  <span class="stg" id="stg-auto" hidden>auto · next in —</span>
+  <span class="stg note">Each timeframe is pulled from Binance on its own — nothing is resampled.</span>
+</div>
+
+<div class="chips pad" id="chips" hidden>
+  <button class="chip" data-combo="a" aria-pressed="true">Conv 15m ∩ Cross 1h <b id="c-a">0</b></button>
+  <button class="chip" data-combo="b" aria-pressed="false">Conv 1h ∩ Cross 4h <b id="c-b">0</b></button>
+  <button class="chip" data-combo="c" aria-pressed="false">Conv 4h ∩ Cross 1d <b id="c-c">0</b></button>
+  <button class="chip" data-combo="d" aria-pressed="false">Conv 15m ∩ Cross 4h <b id="c-d">0</b></button>
+  <button class="chip" data-combo="e" aria-pressed="false">Conv 1h ∩ Cross 1d <b id="c-e">0</b></button>
+</div>
+
+<div class="names pad" id="names">
+  <div class="names-head">
+    <h2 id="names-title">Matches</h2>
+    <span class="count" id="names-count">0</span>
+    <div class="viewtoggle" style="margin-left:auto">
+      <button id="m-cards" aria-pressed="true">Cards</button>
+      <button id="m-table" aria-pressed="false">Table</button>
+    </div>
+    <button class="chip" id="copy">Copy</button>
+  </div>
+  <div class="names-wrap" id="names-list"></div>
+</div>
+
+<div class="stats pad">
+  <div class="stat"><b id="s-pairs">—</b><span id="s-pairs-l">Pairs scanned</span></div>
+  <div class="stat hit"><b id="s-hits">—</b><span id="s-hits-l">Matches</span></div>
+  <div class="stat"><b id="s-second">—</b><span id="s-second-l">Near (3 of 4)</span></div>
+  <div class="stat"><b id="s-time">—</b><span>Last scan</span></div>
+  <div class="field" style="margin-left:auto"><label for="q">Filter symbol</label><input id="q" type="text" placeholder="sol, pepe…" style="width:150px"></div>
+</div>
+
+<div class="banner" id="banner" hidden>
+  <span id="banner-text">—</span>
+  <button id="banner-ok">Dismiss</button>
+</div>
+
+<main class="pad">
+  <table id="tbl"><thead><tr id="head"></tr></thead><tbody id="rows"></tbody></table>
+  <div class="msg" id="msg"></div>
+
+  <div class="watch" id="watch" hidden>
+
+    <div class="wbox">
+      <h3>Phone alerts — Telegram</h3>
+      <div class="wrow">
+        <div class="field" style="flex:1 1 260px">
+          <label for="tg-token">Bot token</label>
+          <input id="tg-token" type="text" placeholder="123456:AA…" value="8884593603:AAGaoW9afl85zGx3gHfilCJrlWXV89hBAnk" style="width:100%">
+        </div>
+        <div class="field">
+          <label for="tg-chat">Chat id</label>
+          <input id="tg-chat" type="text" placeholder="539320422" value="539320422" style="width:140px">
+        </div>
+        <button class="go ghost" id="tg-getid">Get chat id</button>
+        <button class="go ghost" id="tg-test">Send test</button>
+        <span class="wempty" id="tg-state">not set</span>
+      </div>
+      <div class="wempty" id="tg-msg" style="margin-top:10px"></div>
+      <div class="wempty" style="margin-top:6px">
+        Open <b style="color:var(--fg)">t.me/wissamscannerbot</b> and send <b style="color:var(--fg)">/start</b> once, then press Get chat id.
+      </div>
+    </div>
+
+    <div class="wbox">
+      <h3>Watchlist</h3>
+      <div class="wrow" style="margin-bottom:14px">
+        <div class="field">
+          <label for="w-add">Add pair</label>
+          <input id="w-add" type="text" list="w-syms" placeholder="SOL" style="width:150px">
+          <datalist id="w-syms"></datalist>
+        </div>
+        <button class="go" id="w-add-btn">Add</button>
+        <button class="go ghost" id="w-add-view">Add all shown</button>
+        <button class="go ghost" id="w-clear">Clear all</button>
+      </div>
+      <div id="w-list"><span class="wempty">Nothing watched yet. Run a scan, then add the pairs you want to wait for.</span></div>
+    </div>
+
+    <div class="wbox">
+      <h3>Runner</h3>
+      <div class="wrow" style="margin-bottom:14px">
+        <div class="field">
+          <label for="w-tick">Check on close of</label>
+          <select id="w-tick" style="background:var(--panel-2);border:1px solid var(--line);color:var(--fg);border-radius:7px;padding:7px 9px;font-family:var(--mono);font-size:13px">
+            <option value="900000" selected>15m</option>
+            <option value="1800000">30m</option>
+            <option value="3600000">1h</option>
+            <option value="14400000">4h</option>
+          </select>
+        </div>
+        <button class="go" id="w-start">Start watching</button>
+        <button class="go ghost" id="w-stop" disabled>Stop</button>
+        <button class="go ghost" id="w-now">Check now</button>
+      </div>
+      <div class="wstat" style="margin-bottom:12px">
+        <div><b id="w-state">idle</b><span>Status</span></div>
+        <div><b id="w-next">—</b><span>Next check in</span></div>
+        <div><b id="w-last">—</b><span>Last check</span></div>
+        <div><b id="w-fired">0</b><span>Fired</span></div>
+      </div>
+      <div class="wlog" id="w-log"></div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+const API = "https://api.binance.com";
+const $ = id => document.getElementById(id);
+
+const SCANS = {
+  conv15:  { kind: "conv",  tf: "15m", label: "Conv 15m",  short: "C 15m" },
+  conv1h:  { kind: "conv",  tf: "1h",  label: "Conv 1h",   short: "C 1h"  },
+  cross1h: { kind: "cross", tf: "1h",  label: "Cross 1h",  short: "X 1h"  },
+  conv4h:  { kind: "conv",  tf: "4h",  label: "Conv 4h",   short: "C 4h"  },
+  cross4h: { kind: "cross", tf: "4h",  label: "Cross 4h",  short: "X 4h"  },
+  cross1d: { kind: "cross", tf: "1d",  label: "Cross 1d",  short: "X 1d", daily: true }
+};
+const KEYS = Object.keys(SCANS);
+
+// the cascades: a convergence on one timeframe plus a cross on the one above it
+const CASC = {
+  a: { tag: "15m→1h", test: s => s.conv15 && s.cross1h },
+  b: { tag: "1h→4h",  test: s => s.conv1h && s.cross4h },
+  c: { tag: "4h→1d",  test: s => s.conv4h && s.cross1d },
+  d: { tag: "15m→4h", test: s => s.conv15 && s.cross4h },
+  e: { tag: "1h→1d",  test: s => s.conv1h && s.cross1d }
+};
+const CASC_KEYS = Object.keys(CASC);
+const TABS = KEYS.concat("common", "watch", "favs");
+
+let favs = new Set();
+let dispMode = "cards";            // "cards" | "table"
+function favLoad(){ try { favs = new Set(JSON.parse(localStorage.getItem("wissam.favs") || "[]")); } catch(e){} }
+function favSave(){ try { localStorage.setItem("wissam.favs", JSON.stringify([...favs])); } catch(e){} }
+function toggleFav(sym){
+  favs.has(sym) ? favs.delete(sym) : favs.add(sym);
+  favSave(); render();
+}
+// last known ticker figures for any symbol, from whichever scan saw it
+function infoOf(sym){
+  for (const key of KEYS){
+    const r = store[key].rows.find(x => x.sym === sym);
+    if (r) return r;
+  }
+  return null;
+}
+const COMBOS = {
+  a:   r => CASC.a.test(r.set),
+  b:   r => CASC.b.test(r.set),
+  c:   r => CASC.c.test(r.set),
+  d:   r => CASC.d.test(r.set),
+  e:   r => CASC.e.test(r.set)
+};
+
+let view = "conv15";
+let combo = "a";
+let busy = false, abort = false;
+let sortKey = "amama", sortDir = 1;
+
+const store = {};
+KEYS.forEach(k => store[k] = { rows: [], pairs: 0, time: null });
+
+/* ===================== series math (Pine-equivalent) ===================== */
+
+function emaS(v, p){
+  const k = 2/(p+1), out = new Array(v.length).fill(null);
+  if (v.length < p) return out;
+  let prev = 0; for (let i=0;i<p;i++) prev += v[i];
+  prev /= p; out[p-1] = prev;
+  for (let i=p;i<v.length;i++){ prev = v[i]*k + prev*(1-k); out[i] = prev; }
+  return out;
+}
+function rmaS(v, p){
+  const out = new Array(v.length).fill(null);
+  let s = 0; while (s < v.length && v[s] == null) s++;
+  if (v.length - s < p) return out;
+  let sum = 0; for (let i=s;i<s+p;i++) sum += v[i];
+  let prev = sum/p; out[s+p-1] = prev;
+  for (let i=s+p;i<v.length;i++){ prev = (prev*(p-1) + v[i])/p; out[i] = prev; }
+  return out;
+}
+function rsiFrom(delta, len){
+  const gain = delta.map(d => d == null ? null : Math.max(d, 0));
+  const loss = delta.map(d => d == null ? null : Math.max(-d, 0));
+  const ag = rmaS(gain, len), al = rmaS(loss, len);
+  return delta.map((_, i) => {
+    if (ag[i] == null || al[i] == null) return null;
+    const rs = al[i] === 0 ? 100 : ag[i]/al[i];
+    return 100 - (100/(1 + rs));
+  });
+}
+// macdRSI — RSI(14) of the 15/30 MACD line
+function macdRSIseries(c){
+  const ef = emaS(c, 15), es = emaS(c, 30);
+  const m = c.map((_, i) => (ef[i] != null && es[i] != null) ? ef[i] - es[i] : null);
+  const d = m.map((x, i) => (i > 0 && x != null && m[i-1] != null) ? x - m[i-1] : null);
+  return rsiFrom(d, 14);
+}
+// macdRSIx — RSI(15) of the 12/26 MACD line, nz() on the first delta
+function macdRSIxSeries(c){
+  const ef = emaS(c, 12), es = emaS(c, 26);
+  const m = c.map((_, i) => (ef[i] != null && es[i] != null) ? ef[i] - es[i] : null);
+  const d = m.map((x, i) => x == null ? null : ((i > 0 && m[i-1] != null) ? x - m[i-1] : 0));
+  return rsiFrom(d, 15);
+}
+function crossInfo(closes, fast, slow){
+  const ef = emaS(closes, fast), es = emaS(closes, slow);
+  const n = closes.length - 1;
+  if (ef[n] == null || es[n] == null) return null;
+  let bars = null;
+  for (let i=n;i>=1;i--){
+    if (ef[i]==null||es[i]==null||ef[i-1]==null||es[i-1]==null) continue;
+    if (ef[i] > es[i] && ef[i-1] <= es[i-1]){ bars = n - i; break; }
+  }
+  return { bars, gap:(ef[n]-es[n])/es[n]*100, above: ef[n] > es[n] };
+}
+// the four bgCondition inputs on bar i ([1]>[2], as in the Pine source)
+function bgParts(mr, mrx, i){
+  const a = i - 1, b = i - 2;
+  if (b < 0) return null;
+  if (mr[i]==null || mrx[i]==null || mr[a]==null || mr[b]==null || mrx[a]==null || mrx[b]==null) return null;
+  return { mama: mrx[i] - mr[i], mr: mr[i], mrx: mrx[i], cMr: mr[a] > mr[b], cMrx: mrx[a] > mrx[b] };
+}
+const bgAll  = (p, mi, cap) => Math.abs(p.mama) < mi && p.cMr && p.cMrx && p.mrx < cap;
+const bgPass = (p, mi, cap) => [Math.abs(p.mama) < mi, p.cMr, p.cMrx, p.mrx < cap].filter(Boolean).length;
+
+/* ===================== fetching ===================== */
+
+async function jget(path){
+  const r = await fetch(API + path);
+  if (!r.ok) throw new Error(r.status + " " + path);
+  return r.json();
+}
+async function pool(items, limit, worker, tick){
+  let i = 0, done = 0;
+  const run = async () => {
+    while (i < items.length && !abort){
+      const idx = i++;
+      try { await worker(items[idx]); } catch(e){}
+      tick(++done, items.length);
+    }
+  };
+  await Promise.all(Array.from({length: Math.min(limit, items.length)}, run));
+}
+async function universe(minVol){
+  const [info, tickers] = await Promise.all([
+    jget("/api/v3/exchangeInfo"),
+    jget("/api/v3/ticker/24hr")
+  ]);
+  const tmap = new Map(tickers.map(t => [t.symbol, t]));
+  const LEV = /UP$|DOWN$|BULL$|BEAR$/;
+  const STABLE = new Set(["USDC","FDUSD","TUSD","BUSD","DAI","USDP","USD1","RLUSD","EUR","TRY","BRL","AEUR","XUSD","U","USDS"]);
+  const pairs = info.symbols
+    .filter(s => s.quoteAsset === "USDT" && s.status === "TRADING" && s.isSpotTradingAllowed
+                 && !LEV.test(s.baseAsset) && !STABLE.has(s.baseAsset))
+    .map(s => s.symbol)
+    .filter(sym => { const t = tmap.get(sym); return t && parseFloat(t.quoteVolume) >= minVol; })
+    .sort((a,b) => parseFloat(tmap.get(b).quoteVolume) - parseFloat(tmap.get(a).quoteVolume));
+  return { pairs, tmap };
+}
+
+/* ===================== one stage = one timeframe, fetched on its own ===================== */
+
+async function runStage(stageNo, tf, want, pairs, tmap, share){
+  const slow = +$("slow").value, fast = +$("fast").value;
+  const needConv  = want.includes("conv");
+  const needCross = want.includes("cross");
+  const limit = Math.max(needConv ? 300 : 0, needCross ? Math.max(slow * 4, 60) : 0);
+
+  $("stg-" + stageNo).classList.add("run");
+  const outs = {}; want.forEach(w => outs[w] = []);
+
+  await pool(pairs, 12, async sym => {
+    const kl = await jget(`/api/v3/klines?symbol=${sym}&interval=${tf}&limit=${limit}`);
+    const c = kl.slice(0, -1).map(k => parseFloat(k[4]));   // closed candles only
+    const t = tmap.get(sym);
+    const base = { sym, price: parseFloat(t.lastPrice), chg: parseFloat(t.priceChangePercent), vol: parseFloat(t.quoteVolume) };
+
+    if (needCross){
+      const ci = crossInfo(c, fast, slow);
+      if (ci) outs.cross.push({ ...base, bars: ci.bars, gap: ci.gap, above: ci.above });
+    }
+    if (needConv && c.length >= 80){
+      const mr = macdRSIseries(c), mrx = macdRSIxSeries(c);
+      const n = c.length - 1;
+      const cur = bgParts(mr, mrx, n);
+      if (cur){
+        const hist = [];
+        for (let i = Math.max(2, n - 40); i <= n; i++){ const p = bgParts(mr, mrx, i); if (p) hist.push(p); }
+        outs.conv.push({ ...base, ...cur, hist });
+      }
+    }
+  }, (d, total) => {
+    $("prog").style.width = (share.base + d/total*share.span) + "%";
+    $("msg").textContent = `${tf} — ${d} / ${total} pairs…`;
+  });
+
+  $("stg-" + stageNo).classList.remove("run");
+  $("stg-" + stageNo).classList.add("done");
+  return outs;
+}
+
+async function scanAll(){
+  if (busy) return;
+  busy = true; abort = false;
+  $("run").disabled = true; $("stop").disabled = false;
+  ["1","2","3","4"].forEach(n => $("stg-"+n).classList.remove("run","done"));
+  KEYS.forEach(k => store[k] = { rows: [], pairs: 0, time: null });
+  $("msg").style.display = ""; $("msg").textContent = "Loading Binance exchange info…";
+  render();
+
+  const minVol = (+$("minvol").value || 0) * 1e6;
+
+  try {
+    const { pairs, tmap } = await universe(minVol);
+    KEYS.forEach(k => store[k].pairs = pairs.length);
+    const now = () => new Date();
+
+    // 1 — 15m, convergence
+    let o = await runStage(1, "15m", ["conv"], pairs, tmap, { base: 0, span: 22 });
+    store.conv15 = { rows: o.conv, pairs: pairs.length, time: now() };
+    render(); if (abort) return;
+
+    // 2 — 1h, convergence and cross from the same 1h candles
+    o = await runStage(2, "1h", ["conv","cross"], pairs, tmap, { base: 22, span: 30 });
+    store.conv1h  = { rows: o.conv,  pairs: pairs.length, time: now() };
+    store.cross1h = { rows: o.cross, pairs: pairs.length, time: now() };
+    render(); if (abort) return;
+
+    // 3 — 4h, convergence and cross
+    o = await runStage(3, "4h", ["conv","cross"], pairs, tmap, { base: 52, span: 30 });
+    store.conv4h  = { rows: o.conv,  pairs: pairs.length, time: now() };
+    store.cross4h = { rows: o.cross, pairs: pairs.length, time: now() };
+    render(); if (abort) return;
+
+    // 4 — 1d, cross
+    o = await runStage(4, "1d", ["cross"], pairs, tmap, { base: 82, span: 18 });
+    store.cross1d = { rows: o.cross, pairs: pairs.length, time: now() };
+    if (view !== "watch" && view !== "favs") setView("common");   // the cascades are the point
+    render();
+  } catch(e){
+    $("msg").style.display = "";
+    $("msg").innerHTML = "Could not reach Binance.<br>If your network or region blocks api.binance.com, try a VPN or another browser.<br><span class='dim'>" + e.message + "</span>";
+  } finally {
+    busy = false; abort = false;
+    $("run").disabled = false; $("stop").disabled = true;
+    $("prog").style.width = "0%";
+  }
+}
+
+/* ===================== hits — recomputed live from the current knobs ===================== */
+
+const knobs = () => ({
+  mi: +$("mi").value, cap: +$("cap").value,
+  look: Math.max(1, +$("conv-look").value || 1),
+  maxBars: +$("fresh").value,
+  maxBars1d: +$("fresh1d").value
+});
+
+function convHit(r, k){
+  const h = r.hist, from = Math.max(0, h.length - k.look);
+  for (let i = h.length - 1; i >= from; i--) if (bgAll(h[i], k.mi, k.cap)) return true;
+  return false;
+}
+function convAge(r, k){
+  const h = r.hist;
+  for (let i = h.length - 1; i >= 0; i--) if (bgAll(h[i], k.mi, k.cap)) return h.length - 1 - i;
+  return null;
+}
+const crossHit = (r, k, daily) =>
+  r.bars !== null && r.bars <= (daily ? k.maxBars1d : k.maxBars) && r.above;
+
+function hitsOf(key){
+  const k = knobs(), s = store[key], def = SCANS[key];
+  return def.kind === "conv" ? s.rows.filter(r => convHit(r, k))
+                             : s.rows.filter(r => crossHit(r, k, def.daily));
+}
+function hitMap(key){
+  const m = new Map();
+  hitsOf(key).forEach(r => m.set(r.sym, r));
+  return m;
+}
+
+/* ===================== cascades ===================== */
+
+function cascadeRows(){
+  const maps = {}; KEYS.forEach(key => maps[key] = hitMap(key));
+  const syms = new Set(); KEYS.forEach(key => maps[key].forEach((_, s) => syms.add(s)));
+
+  const out = [];
+  syms.forEach(sym => {
+    const set = {}; KEYS.forEach(key => set[key] = maps[key].has(sym));
+    const tags = CASC_KEYS.filter(k => CASC[k].test(set)).map(k => CASC[k].tag);
+    if (!tags.length) return;                       // only completed cascades make the list
+
+    const val = {};
+    KEYS.forEach(key => {
+      const r = maps[key].get(sym);
+      val[key] = !r ? null
+               : SCANS[key].kind === "conv" ? Math.abs(r.mama) : r.bars;
+    });
+    const any = KEYS.map(key => maps[key].get(sym)).find(Boolean);
+    out.push({
+      sym, set, tags, nc: tags.length, val,
+      price: any.price, chg: any.chg, vol: any.vol, hit: true
+    });
+  });
+  return out;
+}
+
+function refreshCounts(){
+  const set = (id, n) => { const el = $(id); el.textContent = n; el.classList.toggle("zero", n === 0); };
+  KEYS.forEach(key => set("p-" + key, store[key].rows.length ? hitsOf(key).length : 0));
+  const cr = cascadeRows();
+  set("p-common", cr.length);
+  set("p-favs", favs.size);
+  Object.keys(COMBOS).forEach(c => {
+    const el = $("c-" + c), n = cr.filter(COMBOS[c]).length;
+    el.textContent = n; el.classList.toggle("zero", n === 0);
+  });
+}
+
+/* ===================== render ===================== */
+
+const HEADS = {
+  conv: [["rank","#"],["sym","Pair"],["amama","|mama|"],["mr","macdRSI"],["mrx","macdRSIx"],
+         ["age","Bars ago",1],["price","Price",1],["chg","24h %",1],["vol","24h vol"],["state","Status"]],
+  cross:[["rank","#"],["sym","Pair"],["bars","Bars since"],["gap","Gap %"],
+         ["price","Price"],["chg","24h %",1],["vol","24h vol"],["state","Status"]],
+  common:[["rank","#"],["sym","Pair"],
+          ["v_conv15","C 15m"],["v_cross1h","X 1h"],["v_conv1h","C 1h"],
+          ["v_cross4h","X 4h"],["v_conv4h","C 4h"],["v_cross1d","X 1d"],
+          ["chg","24h %",1],["vol","24h vol"],["nc","Cascade"]]
+};
+const kindOf = () => (view === "common" || view === "watch" || view === "favs") ? view : SCANS[view].kind;
+
+function buildHead(){
+  if (view === "watch" || view === "favs"){ $("head").innerHTML = ""; return; }
+  $("head").innerHTML = HEADS[kindOf()].map(([k,label,hide]) =>
+    `<th data-k="${k}"${hide ? ' class="hide-s"' : ''}${k==="rank" ? ' style="width:44px"' : ''}>${label}</th>`).join("");
+  document.querySelectorAll("thead th").forEach(th => {
+    th.classList.toggle("on", th.dataset.k === sortKey);
+    th.addEventListener("click", () => {
+      const k = th.dataset.k;
+      if (k === "rank" || k === "state") return;
+      if (sortKey === k) sortDir *= -1;
+      else { sortKey = k; sortDir = (k === "sym" || k === "bars" || k === "amama" || k === "age") ? 1 : -1; }
+      document.querySelectorAll("thead th").forEach(x => x.classList.toggle("on", x.dataset.k === sortKey));
+      render();
+    });
+  });
+}
+
+const fmtP = p => p >= 1000 ? p.toFixed(1) : p >= 1 ? p.toFixed(3) : p.toPrecision(4);
+const volUnits = v => v >= 1e9 ? [(v/1e9).toFixed(2), "B"] : v >= 1e6 ? [(v/1e6).toFixed(1), "M"] : [(v/1e3).toFixed(0), "K"];
+
+function cardHTML(r, metric, tag){
+  const name = r.sym.replace("USDT","");
+  const [vn, vu] = volUnits(r.vol);
+  const isFav = favs.has(r.sym);
+  return `<div class="card${isFav ? " fav" : ""}" data-sym="${r.sym}">
+    <div class="ctop">
+      <span class="cnm">${name}<small>/USDT</small></span>
+      <span class="cchg ${r.chg >= 0 ? "up" : "down"}">${r.chg >= 0 ? "+" : ""}${r.chg.toFixed(1)}%</span>
+    </div>
+    <div class="cvol">
+      <b>$${vn}<span style="font-size:13px;color:var(--muted)">${vu}</span></b>
+      <span>24h volume</span>
+    </div>
+    <div class="crow"><span>Price</span><b>${fmtP(r.price)}</b></div>
+    ${metric ? `<div class="crow"><span>${metric[0]}</span><b class="up">${metric[1]}</b></div>` : ""}
+    ${tag ? `<div class="ctag">${tag}</div>` : ""}
+    <div class="cacts">
+      <span class="cstar" data-act="fav">${isFav ? "★ Saved" : "☆ Save"}</span>
+      <a class="cchart" data-act="chart" target="_blank" rel="noopener"
+         href="https://www.tradingview.com/chart/?symbol=BINANCE:${r.sym}">Chart</a>
+      <span data-act="watch">+ Watch</span>
+    </div>
+  </div>`;
+}
+
+// one click handler for the whole grid: the body saves, the buttons do their own thing
+function wireCards(container){
+  container.querySelectorAll(".card").forEach(card => {
+    card.addEventListener("click", e => {
+      const act = e.target.closest("[data-act]")?.dataset.act;
+      if (act === "chart") return;                       // let the link open
+      e.preventDefault();
+      const sym = card.dataset.sym;
+      if (act === "watch"){
+        const tf = view === "common" || view === "favs" ? "15m" : SCANS[view].tf;
+        const cond = view === "common" || view === "favs" ? "conv"
+                   : SCANS[view].kind === "conv" ? "conv" : "cross";
+        if (wAdd(sym, tf, cond)) { wSave(); renderWatch(); refreshCounts(); }
+        const b = e.target.closest("[data-act]");
+        b.textContent = "Watching"; setTimeout(() => b.textContent = "+ Watch", 1400);
+        return;
+      }
+      toggleFav(sym);                                     // body or star
+    });
+  });
+}
+const fmtV = v => v >= 1e9 ? (v/1e9).toFixed(2)+"B" : v >= 1e6 ? (v/1e6).toFixed(1)+"M" : (v/1e3).toFixed(0)+"K";
+const fmtT = d => d ? d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"}) : "—";
+const chk = (ok, txt) => `<span style="color:${ok ? "var(--up)" : "var(--muted)"}">${txt}</span>`;
+
+function setCell(r, key){
+  const v = r.val[key];
+  if (v === null) return `<td class="dim">—</td>`;
+  const txt = SCANS[key].kind === "conv" ? v.toFixed(1) : v + "b";
+  return `<td class="${r.set[key] ? "up" : "dim"}">${txt}</td>`;
+}
+
+function render(){
+  refreshCounts();
+  $("chips").hidden = view !== "common";
+  $("watch").hidden = view !== "watch";
+  $("names").hidden = view === "watch";
+  $("tbl").hidden   = view === "watch" || view === "favs" || dispMode === "cards";
+  if (view === "watch"){ $("msg").style.display = "none"; renderWatch(); return; }
+
+  if (view === "favs"){
+    $("chips").hidden = true;
+    const list = [...favs].map(sym => infoOf(sym) || { sym, price: NaN, chg: 0, vol: 0 })
+      .sort((a,b) => b.vol - a.vol);
+    $("s-pairs").textContent = favs.size;
+    $("s-hits").textContent  = favs.size;
+    $("s-second").textContent = list.filter(r => r.vol > 0).length;
+    $("names-title").textContent = "Favourites";
+    $("names-count").textContent = favs.size;
+    $("names-list").className = "cards";
+    $("names-list").innerHTML = list.length
+      ? list.map(r => cardHTML(r, null, null)).join("")
+      : `<span class="names-empty">Tap any coin in a scan result to save it here.</span>`;
+    wireCards($("names-list"));
+    $("msg").style.display = "none";
+    return;
+  }
+  const k = knobs();
+  const q = $("q").value.trim().toUpperCase();
+  const onlyHits = $("only").checked;
+  let list;
+
+  if (view === "common"){
+    const cr = cascadeRows();
+    list = cr.filter(COMBOS[combo]).map(r => ({
+      ...r,
+      v_conv15: r.val.conv15, v_conv1h: r.val.conv1h, v_conv4h: r.val.conv4h,
+      v_cross1h: r.val.cross1h, v_cross4h: r.val.cross4h, v_cross1d: r.val.cross1d
+    }));
+    $("s-pairs").textContent  = store.conv15.pairs || "—";
+    $("s-hits").textContent   = list.length;
+    $("s-second").textContent = cr.filter(r => r.nc >= 2).length;
+    const ts = KEYS.map(key => store[key].time).filter(Boolean);
+    $("s-time").textContent   = ts.length ? fmtT(new Date(Math.max(...ts))) : "—";
+  } else {
+    const s = store[view], def = SCANS[view], isConv = def.kind === "conv";
+    const hitSet = new Set(hitsOf(view).map(r => r.sym));
+    list = s.rows.map(r => isConv
+      ? { ...r, hit: hitSet.has(r.sym), amama: Math.abs(r.mama), age: convAge(r, k), pass: bgPass(r, k.mi, k.cap) }
+      : { ...r, hit: hitSet.has(r.sym) });
+    $("s-pairs").textContent = s.pairs || "—";
+    $("s-hits").textContent  = hitSet.size;
+    $("s-second").textContent = isConv
+      ? list.filter(r => !r.hit && r.pass === 3).length
+      : s.rows.filter(r => r.above).length;
+    $("s-time").textContent = fmtT(s.time);
+    if (onlyHits) list = list.filter(r => r.hit);
+  }
+
+  if (q) list = list.filter(r => r.sym.includes(q));
+
+  list.sort((a,b) => {
+    if (a.hit !== b.hit) return a.hit ? -1 : 1;
+    if (sortKey === "sym") return a.sym.localeCompare(b.sym) * sortDir;
+    const av = a[sortKey], bv = b[sortKey];
+    const an = (av === null || av === undefined) ? 1e9 : av;
+    const bn = (bv === null || bv === undefined) ? 1e9 : bv;
+    return (an - bn) * sortDir || b.vol - a.vol;
+  });
+
+  // names panel — the matched pairs, large and tappable
+  const named = list.filter(r => r.hit);
+  const chipEl = document.querySelector(`.chip[data-combo="${combo}"]`);
+  $("names-title").textContent = view === "common"
+    ? (chipEl ? chipEl.firstChild.textContent.trim() : "Cascades")
+    : SCANS[view].label;
+  $("names-count").textContent = named.length;
+  // cards, ordered by the thing that matters most on a phone: 24h volume
+  const byVol = named.slice().sort((a,b) => b.vol - a.vol);
+  $("names-list").className = "cards";
+  $("names-list").innerHTML = byVol.length
+    ? byVol.map(r => {
+        const metric = view === "common" ? null
+                     : SCANS[view].kind === "conv" ? ["|mama|", r.amama.toFixed(1)]
+                                                   : ["Bars since cross", r.bars + "b"];
+        const tag = view === "common" ? r.tags.join(" · ") : null;
+        return cardHTML(r, metric, tag);
+      }).join("")
+    : `<span class="names-empty">— none —</span>`;
+  wireCards($("names-list"));
+
+  $("rows").innerHTML = list.map((r,i) => {
+    const head = `<td>${i+1}</td><td class="sym">${r.sym.replace("USDT","")}<span class="dim" style="font-weight:400">/USDT</span></td>`;
+    const chgVol = `
+      <td class="hide-s ${r.chg >= 0 ? "up" : "down"}">${r.chg >= 0 ? "+" : ""}${r.chg.toFixed(2)}</td>
+      <td>${fmtV(r.vol)}</td>`;
+
+    if (view === "common"){
+      return `<tr class="on">${head}
+        ${setCell(r,"conv15")}${setCell(r,"cross1h")}${setCell(r,"conv1h")}
+        ${setCell(r,"cross4h")}${setCell(r,"conv4h")}${setCell(r,"cross1d")}
+        ${chgVol}
+        <td><span class="tag ${r.nc >= 2 ? "yes" : "up"}">${r.tags.join(" · ")}</span></td></tr>`;
+    }
+    if (SCANS[view].kind === "conv"){
+      return `<tr class="${r.hit ? "on" : ""}">${head}
+        <td>${chk(r.amama < k.mi, r.amama.toFixed(2))}</td>
+        <td>${chk(r.cMr, r.mr.toFixed(1))}</td>
+        <td>${chk(r.cMrx && r.mrx < k.cap, r.mrx.toFixed(1))}</td>
+        <td class="hide-s">${r.age === null ? "<span class='dim'>—</span>" : r.age}</td>
+        <td class="hide-s">${fmtP(r.price)}</td>${chgVol}
+        <td>${r.hit ? `<span class="tag yes">MATCH</span>`
+                    : r.pass === 3 ? `<span class="tag near">3 / 4</span>`
+                                   : `<span class="tag off">${r.pass} / 4</span>`}</td></tr>`;
+    }
+    return `<tr class="${r.hit ? "on" : ""}">${head}
+      <td>${r.bars === null ? "<span class='dim'>—</span>" : r.bars}</td>
+      <td class="${r.gap >= 0 ? "up" : "down"}">${r.gap >= 0 ? "+" : ""}${r.gap.toFixed(2)}</td>
+      <td>${fmtP(r.price)}</td>${chgVol}
+      <td>${r.hit ? `<span class="tag yes">NEW</span>`
+                  : r.above ? `<span class="tag up">ABOVE</span>`
+                            : `<span class="tag off">BELOW</span>`}</td></tr>`;
+  }).join("");
+
+  const m = $("msg");
+  m.style.display = list.length ? "none" : "";
+  if (list.length) return;
+
+  const done = KEYS.filter(key => store[key].time).length;
+  if (!done){
+    m.innerHTML = `Press <b>Scan all</b>.<br>15m convergence · 1h convergence + cross · 4h convergence + cross · 1d cross.`;
+  } else if (view === "common"){
+    m.innerHTML = done < KEYS.length
+      ? `Still scanning — ${done} of ${KEYS.length} result sets ready.`
+      : `No pair completes that cascade.<br><span class="dim">` +
+        KEYS.map(key => `${SCANS[key].short} ${hitsOf(key).length}`).join(" · ") + `</span>`;
+  } else if (q){
+    m.textContent = "Nothing matches that filter.";
+  } else {
+    const def = SCANS[view];
+    m.innerHTML = def.kind === "conv"
+      ? `No pair meets bgCondition on ${def.tf} within the last ${k.look} bar${k.look > 1 ? "s" : ""}.<br><span class="dim">Raise the lookback, MI or the cap — all three re-filter instantly.</span>`
+      : `No fresh cross on ${def.tf} within ${def.daily ? k.maxBars1d : k.maxBars} bars.<br><span class="dim">Raise “Bars since”, or untick “Matches only”.</span>`;
+  }
+}
+
+/* ===================== view switching ===================== */
+
+let lastScanView = "conv15";
+function setView(next){
+  if (next !== "watch") lastScanView = next;
+  view = next;
+  document.documentElement.dataset.kind = kindOf();
+  TABS.forEach(key => $("t-" + key).setAttribute("aria-selected", key === next));
+  if (next !== "watch" && next !== "favs"){
+    $("s-hits-l").textContent   = next === "common" ? "In this cascade" : "Matches";
+    $("s-second-l").textContent = next === "common" ? "In 2+ cascades"
+                                : SCANS[next].kind === "conv" ? "Near (3 of 4)" : "EMA fast above";
+    sortKey = next === "common" ? "nc" : (SCANS[next].kind === "conv" ? "amama" : "bars");
+    sortDir = next === "common" ? -1 : 1;
+  }
+  if (next === "favs"){
+    $("s-pairs-l") && ($("s-pairs-l").textContent = "Saved");
+    $("s-hits-l").textContent = "Saved";
+    $("s-second-l").textContent = "With live data";
+  }
+  buildHead(); render();
+}
+
+TABS.forEach(key => $("t-" + key).addEventListener("click", () => setView(key)));
+document.querySelectorAll(".chip[data-combo]").forEach(ch => ch.addEventListener("click", () => {
+  combo = ch.dataset.combo;
+  document.querySelectorAll(".chip[data-combo]").forEach(x => x.setAttribute("aria-pressed", x === ch));
+  render();
+}));
+$("copy").addEventListener("click", async () => {
+  const text = [...document.querySelectorAll("#names-list a.coin")]
+    .map(a => a.firstChild.textContent.trim()).join(", ");
+  if (!text) return;
+  const btn = $("copy"), old = btn.textContent;
+  try { await navigator.clipboard.writeText(text); btn.textContent = "Copied"; }
+  catch (e) {
+    const rg = document.createRange(); rg.selectNodeContents($("names-list"));
+    const sel = getSelection(); sel.removeAllRanges(); sel.addRange(rg);
+    btn.textContent = "Selected — press Ctrl+C";
+  }
+  setTimeout(() => btn.textContent = old, 1800);
+});
+$("m-cards").addEventListener("click", () => {
+  dispMode = "cards";
+  $("m-cards").setAttribute("aria-pressed","true"); $("m-table").setAttribute("aria-pressed","false");
+  render();
+});
+$("m-table").addEventListener("click", () => {
+  dispMode = "table";
+  $("m-cards").setAttribute("aria-pressed","false"); $("m-table").setAttribute("aria-pressed","true");
+  render();
+});
+$("run").addEventListener("click", scanAll);
+$("stop").addEventListener("click", () => { abort = true; });
+$("clear").addEventListener("click", () => {
+  KEYS.forEach(k => store[k] = { rows: [], pairs: 0, time: null });
+  ["1","2","3","4"].forEach(n => $("stg-"+n).classList.remove("run","done"));
+  render();
+});
+["only","q","mi","cap","conv-look","fresh","fresh1d"].forEach(id => $(id).addEventListener("input", render));
+
+
+/* ==========================================================
+   WATCH — isolated, per-pair conditions, phone alerts
+   ========================================================== */
+
+const COND = {
+  conv:  { label: "Convergence",      short: "CONV" },
+  cross: { label: "Fresh EMA cross",  short: "CROSS" },
+  both:  { label: "Convergence + cross", short: "BOTH" },
+  above: { label: "EMA fast above slow", short: "ABOVE" }
+};
+const TFS = ["15m","30m","1h","4h","1d"];
+
+let watch = [];              // { sym, tf, cond, res, at, candle, fired }
+let wTimer = null, wRunning = false, wBusy = false, wFired = 0;
+let wNextAt = null, wTickMs = 900000;
+let audioCtx = null;
+
+/* ---- persistence (per-browser convenience only) ---- */
+function wSave(){
+  try {
+    localStorage.setItem("wissam.watch", JSON.stringify(
+      watch.map(w => ({ sym: w.sym, tf: w.tf, cond: w.cond }))));
+    localStorage.setItem("wissam.tg", JSON.stringify({
+      token: $("tg-token").value.trim(), chat: $("tg-chat").value.trim() }));
+  } catch(e){}
+}
+function wLoad(){
+  try {
+    const w = JSON.parse(localStorage.getItem("wissam.watch") || "[]");
+    if (Array.isArray(w)) watch = w.map(x => ({ ...x, res: null, at: null, candle: null, fired: false }));
+    const tg = JSON.parse(localStorage.getItem("wissam.tg") || "{}");
+    if (tg.token) $("tg-token").value = tg.token;   // what you typed wins over the built-in default
+    if (tg.chat)  $("tg-chat").value  = tg.chat;
+  } catch(e){}
+}
+
+/* ---- Telegram ---- */
+async function tgSend(text){
+  const token = $("tg-token").value.trim(), chat = $("tg-chat").value.trim();
+  if (!token || !chat) return "no credentials";
+  // a plain GET with no custom headers stays a "simple request", so the browser
+  // sends it straight out instead of asking Telegram for a CORS preflight first
+  const qs = new URLSearchParams({
+    chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: "true"
+  });
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage?${qs}`);
+    const j = await r.json();
+    return j.ok ? "sent" : (j.description || ("error " + r.status));
+  } catch(e){ return "blocked: " + e.message; }
+}
+
+// pulls chat_id straight from the bot's pending updates
+async function tgFindChat(){
+  const token = $("tg-token").value.trim();
+  if (!token) return { note: "put the token in first" };
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${token}/getUpdates`);
+    const j = await r.json();
+    if (!j.ok) return { note: j.description || ("error " + r.status) };
+    const ids = [...new Set((j.result || [])
+      .map(u => (u.message || u.edited_message || u.channel_post || {}).chat)
+      .filter(Boolean).map(c => String(c.id)))];
+    return ids.length ? { id: ids[0], all: ids }
+                      : { note: "no messages yet — send /start to the bot, then press again" };
+  } catch(e){ return { note: "blocked: " + e.message }; }
+}
+
+/* ---- in-page alarm ---- */
+function alarm(){
+  try { navigator.vibrate && navigator.vibrate([400,180,400,180,600]); } catch(e){}
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    [0, 0.42, 0.84].forEach(off => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = "triangle";
+      o.frequency.setValueAtTime(880, audioCtx.currentTime + off);
+      g.gain.setValueAtTime(0.0001, audioCtx.currentTime + off);
+      g.gain.exponentialRampToValueAtTime(0.35, audioCtx.currentTime + off + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + off + 0.3);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(audioCtx.currentTime + off); o.stop(audioCtx.currentTime + off + 0.32);
+    });
+  } catch(e){}
+}
+function showBanner(text){
+  $("banner-text").textContent = text;
+  $("banner").hidden = false;
+}
+
+/* ---- log ---- */
+const wlog = [];
+function logLine(t){
+  wlog.unshift(`${new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"})}  ${t}`);
+  if (wlog.length > 40) wlog.pop();
+  $("w-log").innerHTML = wlog.join("<br>");
+}
+
+/* ---- evaluate one watched pair on its own timeframe ---- */
+async function evalWatch(w){
+  const k = knobs();
+  const kl = await jget(`/api/v3/klines?symbol=${w.sym}&interval=${w.tf}&limit=300`);
+  const closed = kl.slice(0, -1);
+  const c = closed.map(x => parseFloat(x[4]));
+  const candle = closed.length ? closed[closed.length - 1][0] : null;   // last closed candle's open time
+  if (c.length < 80) return { ok: false, note: "not enough history", candle };
+
+  const ef = emaS(c, +$("fast").value), es = emaS(c, +$("slow").value);
+  const n = c.length - 1;
+  const above = ef[n] != null && es[n] != null && ef[n] > es[n];
+
+  const ci = crossInfo(c, +$("fast").value, +$("slow").value);
+  const maxB = w.tf === "1d" ? k.maxBars1d : k.maxBars;
+  const freshCross = !!ci && ci.bars !== null && ci.bars <= maxB && ci.above;
+
+  const mr = macdRSIseries(c), mrx = macdRSIxSeries(c);
+  let convOk = false, mama = null;
+  const cur = bgParts(mr, mrx, n);
+  if (cur){
+    mama = Math.abs(cur.mama);
+    for (let i = n; i > n - k.look && i >= 2; i--){
+      const pp = bgParts(mr, mrx, i);
+      if (pp && bgAll(pp, k.mi, k.cap)) { convOk = true; break; }
+    }
+  }
+
+  const ok = w.cond === "conv"  ? convOk
+           : w.cond === "cross" ? freshCross
+           : w.cond === "both"  ? (convOk && freshCross)
+           :                      above;
+
+  const note = w.cond === "conv"  ? (mama === null ? "—" : `|mama| ${mama.toFixed(1)}`)
+             : w.cond === "cross" ? (ci && ci.bars !== null ? `${ci.bars}b` : "no cross")
+             : w.cond === "both"  ? `${convOk ? "C" : "–"}${freshCross ? "X" : "–"}`
+             :                      (above ? "above" : "below");
+  return { ok, note, candle };
+}
+
+/* ---- one sweep: every watched pair, one after the other ---- */
+async function wSweep(manual){
+  if (wBusy || !watch.length) return;
+  wBusy = true;
+  $("w-state").textContent = "checking";
+  const hits = [];
+
+  for (let i = 0; i < watch.length; i++){
+    const w = watch[i];
+    $("w-state").textContent = `checking ${w.sym.replace("USDT","")}`;
+    renderWatch();
+    try {
+      const r = await evalWatch(w);
+      const isNew = r.ok && r.candle !== w.candle;
+      w.res = r.ok ? "HIT" : "no";
+      w.note = r.note;
+      w.at = new Date();
+      w.fired = r.ok;
+      if (isNew){ w.candle = r.candle; hits.push(w); }
+      logLine(`${w.sym.replace("USDT","")} ${w.tf} ${COND[w.cond].short} → ${r.ok ? "HIT" : "no"} (${r.note})`);
+    } catch(e){
+      w.res = "err"; w.note = "fetch failed"; w.at = new Date();
+      logLine(`${w.sym.replace("USDT","")} — ${e.message}`);
+    }
+    renderWatch();
+    await new Promise(z => setTimeout(z, 250));   // one after the other, not in parallel
+  }
+
+  $("w-last").textContent = new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+
+  if (hits.length){
+    wFired += hits.length;
+    $("w-fired").textContent = wFired;
+    const lines = hits.map(h => `• <b>${h.sym.replace("USDT","")}</b> ${h.tf} — ${COND[h.cond].label} (${h.note})`);
+    const text = `🟢 <b>Wissam Watch</b>\n${lines.join("\n")}`;
+    const state = await tgSend(text);
+    logLine(`telegram: ${state}`);
+    alarm();
+    showBanner(`🟢 ${hits.map(h => h.sym.replace("USDT","")).join(", ")} — condition met`);
+  }
+
+  $("w-state").textContent = wRunning ? "waiting" : "idle";
+  wBusy = false;
+  renderWatch();
+}
+
+/* ---- scheduling, aligned to candle closes ---- */
+function wSchedule(){
+  clearTimeout(wTimer);
+  if (!wRunning) return;
+  wNextAt = Math.ceil(Date.now() / wTickMs) * wTickMs + 6000;   // 6s grace for Binance
+  wTimer = setTimeout(async () => { await wSweep(false); wSchedule(); }, wNextAt - Date.now());
+}
+setInterval(() => {
+  if (!wRunning || !wNextAt){ $("w-next").textContent = "—"; return; }
+  const left = Math.max(0, wNextAt - Date.now());
+  const m = Math.floor(left / 60000), sec = Math.floor(left % 60000 / 1000);
+  $("w-next").textContent = `${m}:${String(sec).padStart(2,"0")}`;
+}, 1000);
+
+/* ---- watch UI ---- */
+function renderWatch(){
+  const token = $("tg-token").value.trim(), chat = $("tg-chat").value.trim();
+  $("tg-state").textContent = token && chat ? "ready" : "not set";
+  $("tg-state").style.color = token && chat ? "var(--up)" : "var(--muted)";
+
+  const syms = new Set();
+  KEYS.forEach(key => store[key].rows.forEach(r => syms.add(r.sym)));
+  $("w-syms").innerHTML = [...syms].sort().map(x => `<option value="${x.replace("USDT","")}">`).join("");
+
+  $("w-list").innerHTML = watch.length ? watch.map((w, i) => `
+    <div class="witem${w.fired ? " fired" : ""}">
+      <span class="wsym">${w.sym.replace("USDT","")}<span class="dim" style="font-weight:400;font-size:11.5px">/USDT</span></span>
+      <select data-i="${i}" data-f="tf">${TFS.map(t => `<option value="${t}"${t===w.tf?" selected":""}>${t}</option>`).join("")}</select>
+      <select data-i="${i}" data-f="cond">${Object.keys(COND).map(c => `<option value="${c}"${c===w.cond?" selected":""}>${COND[c].label}</option>`).join("")}</select>
+      <span class="wres" style="color:${w.res === "HIT" ? "var(--hot)" : w.res === "err" ? "var(--down)" : "var(--muted)"}">${
+        w.res ? (w.res === "HIT" ? "HIT" : w.note || w.res) : "—"}</span>
+      <button class="wdel" data-del="${i}" title="remove">×</button>
+    </div>`).join("")
+    : `<span class="wempty">Nothing watched yet. Run a scan, then add the pairs you want to wait for.</span>`;
+
+  $("w-list").querySelectorAll("select").forEach(sel => sel.addEventListener("change", () => {
+    watch[+sel.dataset.i][sel.dataset.f] = sel.value;
+    watch[+sel.dataset.i].res = null; watch[+sel.dataset.i].candle = null; watch[+sel.dataset.i].fired = false;
+    wSave(); renderWatch();
+  }));
+  $("w-list").querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", () => {
+    watch.splice(+b.dataset.del, 1); wSave(); renderWatch(); refreshCounts();
+  }));
+
+  const pill = $("p-watch");
+  pill.textContent = watch.length;
+  pill.classList.toggle("zero", watch.length === 0);
+}
+
+function wAdd(sym, tf, cond){
+  const full = sym.toUpperCase().replace(/USDT$/,"") + "USDT";
+  if (watch.some(w => w.sym === full && w.tf === tf && w.cond === cond)) return false;
+  watch.push({ sym: full, tf, cond, res: null, at: null, candle: null, fired: false });
+  return true;
+}
+
+/* ---- watch wiring ---- */
+$("w-add-btn").addEventListener("click", () => {
+  const v = $("w-add").value.trim();
+  if (!v) return;
+  if (wAdd(v, "15m", "conv")) { $("w-add").value = ""; wSave(); renderWatch(); }
+});
+$("w-add").addEventListener("keydown", e => { if (e.key === "Enter") $("w-add-btn").click(); });
+$("w-add-view").addEventListener("click", () => {
+  // take whatever the last non-watch view showed, with a sensible preset
+  const src = lastScanView;
+  const preset = src === "common" ? { tf: "15m", cond: "conv" }
+               : { tf: SCANS[src].tf, cond: SCANS[src].kind === "conv" ? "conv" : "cross" };
+  const rows = src === "common" ? cascadeRows().filter(COMBOS[combo]) : hitsOf(src);
+  let n = 0;
+  rows.forEach(r => { if (wAdd(r.sym, preset.tf, preset.cond)) n++; });
+  wSave(); renderWatch();
+  logLine(`added ${n} pair${n === 1 ? "" : "s"} from ${src === "common" ? "cascades" : SCANS[src].label}`);
+});
+$("w-clear").addEventListener("click", () => { watch = []; wSave(); renderWatch(); });
+$("w-tick").addEventListener("change", () => { wTickMs = +$("w-tick").value; wSchedule(); });
+$("w-start").addEventListener("click", () => {
+  if (!watch.length) { logLine("nothing to watch"); return; }
+  wRunning = true; wTickMs = +$("w-tick").value;
+  $("w-start").disabled = true; $("w-stop").disabled = false;
+  $("w-state").textContent = "waiting";
+  try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume(); } catch(e){}
+  logLine(`watching ${watch.length} pair${watch.length === 1 ? "" : "s"} · tick ${$("w-tick").selectedOptions[0].text}`);
+  wSchedule();
+});
+$("w-stop").addEventListener("click", () => {
+  wRunning = false; clearTimeout(wTimer); wNextAt = null;
+  $("w-start").disabled = false; $("w-stop").disabled = true;
+  $("w-state").textContent = "idle";
+  logLine("stopped");
+});
+$("w-now").addEventListener("click", () => wSweep(true));
+$("banner-ok").addEventListener("click", () => { $("banner").hidden = true; });
+function tgMsg(text, ok){
+  $("tg-msg").innerHTML = text;
+  $("tg-msg").style.color = ok ? "var(--up)" : "var(--hot)";
+}
+$("tg-test").addEventListener("click", async () => {
+  $("tg-test").disabled = true;
+  tgMsg("sending…", true);
+  const r = await tgSend("✅ <b>Wissam Watch</b> — test from the phone");
+  logLine("telegram test: " + r);
+  tgMsg(r === "sent" ? "Sent — check Telegram." : "Telegram said: <b>" + r + "</b>", r === "sent");
+  $("tg-test").disabled = false;
+});
+$("tg-getid").addEventListener("click", async () => {
+  $("tg-getid").disabled = true;
+  tgMsg("looking…", true);
+  const r = await tgFindChat();
+  if (r.id){
+    $("tg-chat").value = r.id;
+    wSave(); renderWatch();
+    tgMsg(`Found chat id <b>${r.id}</b>${r.all.length > 1 ? " (of " + r.all.length + ")" : ""} — filled in. Now press Send test.`, true);
+    logLine("chat id: " + r.id);
+  } else {
+    tgMsg(r.note, false);
+    logLine("chat id: " + r.note);
+  }
+  $("tg-getid").disabled = false;
+});
+["tg-token","tg-chat"].forEach(id => $(id).addEventListener("input", () => { wSave(); renderWatch(); }));
+
+wLoad();
+favLoad();
+
+wTickMs = 900000;
+
+/* ==========================================================
+   AUTO — rescan on every 15m close while the app is open
+   ========================================================== */
+let autoOn = false, autoTimer = null, autoNextAt = null, autoSeen = new Set();
+const AUTO_MS = 900000;                       // the 15m candle
+
+function autoSchedule(){
+  clearTimeout(autoTimer);
+  if (!autoOn) { autoNextAt = null; $("stg-auto").hidden = true; return; }
+  $("stg-auto").hidden = false;
+  autoNextAt = Math.ceil(Date.now() / AUTO_MS) * AUTO_MS + 10000;   // 10s grace for Binance
+  autoTimer = setTimeout(async () => { await autoRun(); autoSchedule(); }, autoNextAt - Date.now());
+}
+
+async function autoRun(){
+  if (busy) return;
+  $("stg-auto").classList.add("run");
+  await scanAll();
+  $("stg-auto").classList.remove("run");
+
+  // anything newly completing a cascade gets pushed to the phone
+  const fresh = cascadeRows().filter(r => !autoSeen.has(r.sym + "|" + r.tags.join()));
+  cascadeRows().forEach(r => autoSeen.add(r.sym + "|" + r.tags.join()));
+  if (autoSeen.size > 400) autoSeen = new Set([...autoSeen].slice(-200));
+
+  if (fresh.length){
+    const lines = fresh.slice(0, 12).map(r =>
+      `• <b>${r.sym.replace("USDT","")}</b> ${r.tags.join(" · ")} — $${(r.vol/1e6).toFixed(1)}M`);
+    await tgSend(`🟢 <b>Wissam Cascade</b>\n${lines.join("\n")}`);
+    alarm();
+    showBanner(`🟢 ${fresh.slice(0,4).map(r => r.sym.replace("USDT","")).join(", ")}${fresh.length > 4 ? ` +${fresh.length-4}` : ""} — cascade`);
+    if (view !== "common") setView("common");
+  }
+}
+
+setInterval(() => {
+  if (!autoOn || !autoNextAt) return;
+  const left = Math.max(0, autoNextAt - Date.now());
+  $("stg-auto").textContent = `auto · next in ${Math.floor(left/60000)}:${String(Math.floor(left%60000/1000)).padStart(2,"0")}`;
+}, 1000);
+
+$("auto").addEventListener("change", () => {
+  autoOn = $("auto").checked;
+  try { localStorage.setItem("wissam.auto", autoOn ? "1" : "0"); } catch(e){}
+  if (autoOn){
+    try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume(); } catch(e){}
+    if (!KEYS.some(k => store[k].time)) scanAll();     // first run immediately
+  }
+  autoSchedule();
+});
+try { if (localStorage.getItem("wissam.auto") === "1"){ $("auto").checked = true; $("auto").dispatchEvent(new Event("change")); } } catch(e){}
+
+/* keep the screen awake while auto-scanning, where the browser allows it */
+let wakeLock = null;
+async function keepAwake(){
+  try {
+    if (autoOn && "wakeLock" in navigator && document.visibilityState === "visible")
+      wakeLock = await navigator.wakeLock.request("screen");
+  } catch(e){}
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible"){
+    keepAwake();
+    if (autoOn) autoSchedule();        // the timer may have been frozen in the background
+  }
+});
+
+/* service worker — makes this installable as an app */
+if ("serviceWorker" in navigator && location.protocol.startsWith("http"))
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+
+setView("conv15");
+renderWatch();
+</script>
+</body>
+</html>
