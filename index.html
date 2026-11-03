@@ -292,11 +292,11 @@ tbody tr:hover{background:#1a2130}
       <div class="wrow">
         <div class="field" style="flex:1 1 260px">
           <label for="tg-token">Bot token</label>
-          <input id="tg-token" type="text" placeholder="123456:AA…" value="8884593603:AAGaoW9afl85zGx3gHfilCJrlWXV89hBAnk" style="width:100%">
+          <input id="tg-token" type="text" placeholder="123456:AA…" style="width:100%">
         </div>
         <div class="field">
           <label for="tg-chat">Chat id</label>
-          <input id="tg-chat" type="text" placeholder="539320422" value="539320422" style="width:140px">
+          <input id="tg-chat" type="text" placeholder="539320422" style="width:140px">
         </div>
         <button class="go ghost" id="tg-getid">Get chat id</button>
         <button class="go ghost" id="tg-test">Send test</button>
@@ -306,6 +306,24 @@ tbody tr:hover{background:#1a2130}
       <div class="wempty" style="margin-top:6px">
         Open <b style="color:var(--fg)">t.me/wissamscannerbot</b> and send <b style="color:var(--fg)">/start</b> once, then press Get chat id.
       </div>
+    </div>
+
+    <div class="wbox">
+      <h3>Background scanner · GitHub</h3>
+      <div class="wempty" style="margin-bottom:12px;line-height:1.6">
+        Sends the thresholds above to the scanner that runs every 15 minutes.
+        It picks them up on its next run and confirms here.
+      </div>
+      <div class="wrow">
+        <button class="go" id="bg-send">Send settings to scanner</button>
+        <button class="go ghost" id="bg-status">Status</button>
+        <button class="go ghost" id="bg-rep4">Report</button>
+        <button class="go ghost" id="bg-rep24">Journal</button>
+        <button class="go ghost" id="bg-scan">Scan now</button>
+        <button class="go ghost" id="bg-pause">Pause</button>
+        <button class="go ghost" id="bg-resume">Resume</button>
+      </div>
+      <div class="wempty" id="bg-msg" style="margin-top:10px"></div>
     </div>
 
     <div class="wbox">
@@ -1207,6 +1225,32 @@ function wAdd(sym, tf, cond){
 }
 
 /* ---- watch wiring ---- */
+/* ---- the background scanner is driven through the same bot ---- */
+function bgCmd(){
+  const k = knobs();
+  return `/set mi=${k.mi} cap=${k.cap} look=${k.look} bars=${k.maxBars}`
+       + ` bars1d=${k.maxBars1d} vol=${(+$("minvol").value || 0)}`;
+}
+async function bgSend(cmd, label){
+  const btn = event && event.target;
+  $("bg-msg").textContent = "sending…";
+  $("bg-msg").style.color = "var(--muted)";
+  const r = await tgSend(cmd);
+  const ok = r === "sent";
+  $("bg-msg").innerHTML = ok
+    ? `Sent <code>${cmd}</code> — the scanner applies it on its next run (within 15 min) and replies in Telegram.`
+    : `Telegram said: <b>${r}</b>`;
+  $("bg-msg").style.color = ok ? "var(--up)" : "var(--hot)";
+  logLine(`scanner ${label}: ${r}`);
+}
+$("bg-send").addEventListener("click",   () => bgSend(bgCmd(), "settings"));
+$("bg-status").addEventListener("click", () => bgSend("/status", "status"));
+$("bg-rep4").addEventListener("click",  () => bgSend("/report", "report"));
+$("bg-rep24").addEventListener("click", () => bgSend("/journal", "journal"));
+$("bg-scan").addEventListener("click",   () => bgSend("/scan", "scan now"));
+$("bg-pause").addEventListener("click",  () => bgSend("/pause", "pause"));
+$("bg-resume").addEventListener("click", () => bgSend("/resume", "resume"));
+
 $("w-add-btn").addEventListener("click", () => {
   const v = $("w-add").value.trim();
   if (!v) return;
