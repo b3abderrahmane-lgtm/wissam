@@ -1,0 +1,12 @@
+{
+  "bars": 10,
+  "bars1d": 2,
+  "cap": 40.0,
+  "cooldown": 6.0,
+  "force": false,
+  "look": 2,
+  "mi": 10.0,
+  "paused": false,
+  "tg_offset": 0,
+  "vol": 0.5
+}
