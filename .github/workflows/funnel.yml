@@ -1,0 +1,54 @@
+name: Wissam Funnel
+
+on:
+  schedule:
+    # كلّ ربع ساعة. GitHub يصطفّ المهامّ المجدولة، فتأخّر بضع دقائق أمر عادي.
+    - cron: "*/15 * * * *"
+  workflow_dispatch:          # لتشغيله يدوياً من تبويب Actions
+
+concurrency:
+  group: wissam-funnel
+  cancel-in-progress: false
+
+jobs:
+  funnel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install --quiet requests
+
+      # يحمل funnel_state.json من التشغيل السابق حتى لا تتكرّر نفس العملة
+      - name: Restore state
+        uses: actions/cache/restore@v4
+        with:
+          path: funnel_state.json
+          key: wissam-funnel-${{ github.run_id }}
+          restore-keys: wissam-funnel-
+
+      - name: Funnel
+        env:
+          TG_TOKEN: ${{ secrets.TG_TOKEN }}
+          TG_CHAT:  ${{ secrets.TG_CHAT }}
+          # ── الإعدادات: غيّرها هنا ──
+          THR_4H:         "50"    # سقف macdRSI على 4 ساعات
+          MAX_BARS_1H:    "10"    # أقصى عمر لتقاطع الساعة بالشمعات
+          CONV_MI:        "10"    # أقصى |mama| للتقارب في 15 دقيقة
+          CONV_CAP:       "70"    # سقف الخطّين في 15 دقيقة
+          CONV_LOOKBACK:  "2"     # كم شمعة نبحث فيها عن التقارب
+          MIN_VOLUME_M:   "0.5"   # حجم 24 ساعة الأدنى بالمليون دولار
+          COOLDOWN_HOURS: "6"     # لا تُعاد نفس العملة قبل هذه المدّة
+        run: python wissam_funnel.py
+
+      - name: Save state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: funnel_state.json
+          key: wissam-funnel-${{ github.run_id }}
